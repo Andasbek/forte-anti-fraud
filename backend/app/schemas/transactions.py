@@ -45,3 +45,20 @@ class BatchScoringRequest(BaseModel):
 
 class BatchScoringResponse(BaseModel):
     results: List[TransactionScoringResponse]
+
+class TransactionExplainRequest(BaseModel):
+    """
+    Запрос на объяснение уже полученного решения.
+    Передаём:
+    - те же фичи, что и в score_transaction (transaction),
+    - уже посчитанные моделью fraud_probability и risk_level.
+    """
+    transaction: TransactionScoringRequest
+    fraud_probability: float
+    risk_level: str
+
+
+class TransactionExplainResponse(BaseModel):
+    fraud_probability: float
+    risk_level: str
+    explanation: str

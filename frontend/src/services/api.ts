@@ -5,6 +5,8 @@ const API_PREFIX = import.meta.env.VITE_API_PREFIX || "/api/v1";
 
 const SCORE_URL = `${API_BASE_URL}${API_PREFIX}/score_transaction`;
 
+const API_KEY: string | undefined = import.meta.env.VITE_API_KEY;
+
 export interface ScoreTransactionRequest {
   amount: number;
   os_ver_cnt_30d?: number;
@@ -46,4 +48,42 @@ export async function scoreTransaction(
   }
 
   return (await res.json()) as ScoreTransactionResponse;
+}
+
+export interface ExplainTransactionRequest {
+  transaction: ScoreTransactionRequest;
+  fraud_probability: number;
+  risk_level: string;
+}
+
+export interface ExplainTransactionResponse {
+  fraud_probability: number;
+  risk_level: string;
+  explanation: string;
+}
+
+const EXPLAIN_URL = `${API_BASE_URL}${API_PREFIX}/explain_transaction`;
+
+export async function explainTransaction(
+  payload: ExplainTransactionRequest
+): Promise<ExplainTransactionResponse> {
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+
+  if (API_KEY) {
+    headers["X-API-Key"] = API_KEY;
+  }
+
+  const res = await fetch(EXPLAIN_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    throw new Error(`API error: ${res.status}`);
+  }
+
+  return (await res.json()) as ExplainTransactionResponse;
 }

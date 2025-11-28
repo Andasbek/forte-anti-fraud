@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from "react";
 import {
   scoreTransaction,
+  explainTransaction,
   type ScoreTransactionRequest,
   type ScoreTransactionResponse,
 } from "./services/api";
@@ -82,10 +83,14 @@ const HistoryTable: React.FC<{ history: HistoryItem[] }> = ({ history }) => {
                 <td className="px-2 py-1 text-slate-400">{h.timestamp}</td>
                 <td className="px-2 py-1">{Math.round(h.amount)}</td>
                 <td className="px-2 py-1">
-                  {h.os_ver_cnt_30d ?? <span className="text-slate-500">–</span>}
+                  {h.os_ver_cnt_30d ?? (
+                    <span className="text-slate-500">–</span>
+                  )}
                 </td>
                 <td className="px-2 py-1">
-                  {h.login_sessions_7d ?? <span className="text-slate-500">–</span>}
+                  {h.login_sessions_7d ?? (
+                    <span className="text-slate-500">–</span>
+                  )}
                 </td>
                 <td className="px-2 py-1">
                   {(h.fraud_probability * 100).toFixed(1)}%
@@ -128,7 +133,9 @@ const App: React.FC = () => {
   const [result, setResult] = useState<ScoreTransactionResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+  const [explanation, setExplanation] = useState<string | null>(null);
+  const [isExplaining, setIsExplaining] = useState(false);
+  const [explainError, setExplainError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
 
   const handleChangeNumber =
@@ -146,10 +153,12 @@ const App: React.FC = () => {
     try {
       setIsLoading(true);
       setError(null);
+      setExplanation(null);
+      setExplainError(null);
+
       const res = await scoreTransaction(form);
       setResult(res);
 
-      // обновляем историю (последние 20)
       setHistory((prev) => {
         const item: HistoryItem = {
           id: prev.length + 1,
@@ -173,7 +182,26 @@ const App: React.FC = () => {
     }
   };
 
-  // пресет: нормальный клиент
+  const handleExplain = async () => {
+    if (!result) return;
+    try {
+      setIsExplaining(true);
+      setExplainError(null);
+      const resp = await explainTransaction({
+        transaction: form,
+        fraud_probability: result.fraud_probability,
+        risk_level: result.risk_level,
+      });
+      setExplanation(resp.explanation);
+    } catch (err: any) {
+      console.error(err);
+      setExplainError(err.message || "Ошибка при запросе объяснения");
+    } finally {
+      setIsExplaining(false);
+    }
+  };
+
+  // пресеты
   const fillLegitExample = () => {
     setForm({
       amount: 15000,
@@ -188,7 +216,6 @@ const App: React.FC = () => {
     });
   };
 
-  // пресет: подозрительный (как раньше)
   const fillFraudExample = () => {
     setForm({
       amount: 300000,
@@ -210,7 +237,6 @@ const App: React.FC = () => {
     });
   };
 
-  // новый пресет: новый девайс + крупная сумма
   const fillNewDeviceBigAmount = () => {
     setForm({
       amount: 500000,
@@ -225,7 +251,6 @@ const App: React.FC = () => {
     });
   };
 
-  // новый пресет: серия мелких переводов ночью
   const fillNightSmallTransfers = () => {
     setForm({
       amount: 5000,
@@ -264,27 +289,26 @@ const App: React.FC = () => {
     return { total, avgRisk, highShare };
   }, [history]);
 
-  let riskBadge = null;
+  // бейдж риска
+  let riskBadge: JSX.Element | null = null;
   if (result) {
-    let badgeColor =
-      "bg-emerald-500/20 text-emerald-300 border-emerald-500/60";
-    let label = "Low risk";
-
-    if (result.risk_level === "medium") {
-      badgeColor = "bg-amber-500/20 text-amber-300 border-amber-500/60";
-      label = "Medium risk";
-    } else if (result.risk_level === "high") {
-      badgeColor = "bg-red-500/20 text-red-300 border-red-500/60";
-      label = "High risk";
-    }
-
     riskBadge = (
       <div className="mb-4">
         <div className="flex items-center gap-2 mb-2">
           <span
-            className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${badgeColor}`}
+            className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${
+              result.risk_level === "high"
+                ? "border-red-500 bg-red-500/10 text-red-300"
+                : result.risk_level === "medium"
+                ? "border-amber-500 bg-amber-500/10 text-amber-300"
+                : "border-emerald-500 bg-emerald-500/10 text-emerald-300"
+            }`}
           >
-            {label}
+            {result.risk_level === "high"
+              ? "High risk"
+              : result.risk_level === "medium"
+              ? "Medium risk"
+              : "Low risk"}
           </span>
           <span className="text-xs text-slate-400">
             model: {result.model_version}
@@ -303,7 +327,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="max-w-6xl w-full grid lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1.2fr)] gap-6">
-        {/* Левая панель: форма + статистика сеанса */}
+        {/* Левая панель */}
         <div className="bg-slate-800/70 border border-slate-700 rounded-2xl p-6 md:p-8 shadow-xl">
           <h1 className="text-2xl md:text-3xl font-semibold mb-2">
             Forte Anti-Fraud Scoring
@@ -336,6 +360,7 @@ const App: React.FC = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* базовые фичи */}
             <div>
               <h2 className="text-sm font-semibold text-slate-200 mb-2">
                 Параметры транзакции
@@ -410,6 +435,7 @@ const App: React.FC = () => {
               </div>
             </div>
 
+            {/* доп. фичи */}
             <div className="border-t border-slate-700 pt-4">
               <h2 className="text-sm font-semibold text-slate-200 mb-2">
                 Дополнительные фичи (опционально)
@@ -490,7 +516,7 @@ const App: React.FC = () => {
           )}
         </div>
 
-        {/* Правая панель: результат + воронка + история */}
+        {/* Правая панель */}
         <div className="bg-slate-900/60 border border-slate-700 rounded-2xl p-6 md:p-8 shadow-xl flex flex-col">
           {!result ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center">
@@ -505,7 +531,35 @@ const App: React.FC = () => {
           ) : (
             <>
               {riskBadge}
-              <RiskGauge proba={result?.fraud_probability} />
+
+              <button
+                type="button"
+                onClick={handleExplain}
+                disabled={isExplaining}
+                className="inline-flex items-center px-3 py-1.5 rounded-lg bg-sky-500 text-slate-900 text-xs font-medium hover:bg-sky-400 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+              >
+                {isExplaining
+                  ? "Генерируем объяснение..."
+                  : "Объяснить решение (LLM)"}
+              </button>
+
+              {explainError && (
+                <div className="mt-2 text-xs text-red-400">
+                  {explainError}
+                </div>
+              )}
+
+              {explanation && (
+                <div className="mt-3 text-xs bg-slate-900/70 border border-slate-700 rounded-xl p-3 text-slate-200">
+                  <div className="font-semibold text-slate-100 mb-1">
+                    Объяснение от AI:
+                  </div>
+                  <p className="whitespace-pre-line">{explanation}</p>
+                </div>
+              )}
+
+              <RiskGauge proba={result.fraud_probability} />
+
               <div className="mt-4 text-sm text-slate-300 space-y-1">
                 <p>Интерпретация:</p>
                 {result.risk_level === "low" && (

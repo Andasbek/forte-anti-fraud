@@ -11,9 +11,12 @@ from backend.app.schemas.transactions import (
     TransactionScoringResponse,
     BatchScoringRequest,
     BatchScoringResponse,
+    TransactionExplainRequest,
+    TransactionExplainResponse,
 )
 from backend.app.services.fraud_model import fraud_model_service
 from backend.app.services.audit_logger import log_scoring_event
+from backend.app.services.llm_explainer import llm_explainer_service
 
 router = APIRouter(tags=["scoring"])
 settings = get_settings()
@@ -91,3 +94,24 @@ def score_batch(
         )
 
     return BatchScoringResponse(results=results)
+
+@router.post(
+    "/explain_transaction",
+    response_model=TransactionExplainResponse,
+)
+def explain_transaction(
+    request: TransactionExplainRequest,
+    _: None = Depends(verify_api_token),
+) -> TransactionExplainResponse:
+    """
+    Возвращает текстовое объяснение уже полученного решения модели.
+    ML-часть (fraud_probability, risk_level) мы не пересчитываем — 
+    используем то, что пришло от фронта.
+    """
+    explanation = llm_explainer_service.explain(request)
+
+    return TransactionExplainResponse(
+        fraud_probability=request.fraud_probability,
+        risk_level=request.risk_level,
+        explanation=explanation,
+    )

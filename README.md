@@ -108,46 +108,7 @@
 
 ---
 
-## ⚙️ Переменные окружения
 
-### Backend (`.env` в корне проекта)
-
-```env
-# FastAPI / модель
-MODEL_PATH=ml/models/model_xgb_baseline.pkl
-
-# Пороги риска
-RISK_THRESHOLD_MEDIUM=0.26
-RISK_THRESHOLD_HIGH=0.80
-
-# API-префикс и проект
-PROJECT_NAME="Forte Anti-Fraud API"
-API_V1_PREFIX=/api/v1
-
-# API-токен (если пусто — проверка выключена)
-API_TOKEN=
-
-# Логи скоринга (SQLite)
-LOG_DB_PATH=logs/scoring_logs.db
-
-# LLM (опционально)
-OPENAI_API_KEY=sk-...        # если не задать — LLM-объяснения будут отключены
-OPENAI_MODEL=gpt-4.1-mini    # или gpt-4o, gpt-4.1 и др.
-```
-
-### Frontend (`frontend/.env`)
-
-```env
-# Адрес backend API
-VITE_API_BASE_URL=http://localhost:8000
-
-# API ключ для заголовка X-API-Key (должен совпадать с API_TOKEN в .env backend, если он задан)
-VITE_API_KEY=
-```
-
-> ⚠️ Если `API_TOKEN` пустой, то проверка токена на backend отключена и `VITE_API_KEY` можно не задавать.
-
----
 
 ## 🚀 Запуск без Docker
 

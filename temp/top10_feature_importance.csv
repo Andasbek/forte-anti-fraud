@@ -1,0 +1,11 @@
+feature,importance
+amount,0.1456019
+os_version_last,0.1140136
+var_session_interval_30d,0.06809906
+phone_model_cnt_30d,0.05971759
+phone_model_last,0.055741157
+login_sessions_30d,0.05501048
+logins_7d_share_of_30d,0.052085485
+login_freq_change_7d_vs_30d,0.04673347
+zscore_interval_7d_vs_30d,0.046364475
+burstiness_sessions,0.045431595
